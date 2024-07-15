@@ -28,13 +28,18 @@ def migrate_data():
 
         source_cursor = source_conn.cursor()
 
+        # Vérifier que les tables T1 et T2 existent
+        source_cursor.execute("SHOW TABLES LIKE 'T1'")
+        if not source_cursor.fetchone():
+            raise Exception("La table T1 n'existe pas dans la base de données source")
+        
+        source_cursor.execute("SHOW TABLES LIKE 'T2'")
+        if not source_cursor.fetchone():
+            raise Exception("La table T2 n'existe pas dans la base de données source")
+
         # Récupérer les données des tables T1 et T2
         rows_T1 = fetch_data(source_cursor, "SELECT C1T1 FROM T1")
-        rows_T2 = fetch_data(source_cursor, "SELECT C2T2 FROM T2")
-
-        # Vérifier que les deux tables ont le même nombre de lignes
-        if len(rows_T1) != len(rows_T2):
-            raise Exception("Les tables T1 et T2 doivent avoir le même nombre de lignes")
+        rows_T2 = fetch_data(source_cursor, "SELECT C1T2 FROM T2")
 
         # Connexion à la base de données de destination
         destination_conn = get_connection("localhost", "root", "", "2jenkis1-database1")
@@ -43,11 +48,22 @@ def migrate_data():
 
         destination_cursor = destination_conn.cursor()
 
+        # Vérifier que la table T3 existe
+        destination_cursor.execute("SHOW TABLES LIKE 'T3'")
+        if not destination_cursor.fetchone():
+            raise Exception("La table T3 n'existe pas dans la base de données de destination")
+
+        # Calculer la longueur maximale
+        max_length = max(len(rows_T1), len(rows_T2))
+
         # Insérer les données dans la table T3
-        for i in range(len(rows_T1)):
+        for i in range(max_length):
+            value_C1T2 = rows_T2[i][0] if i < len(rows_T2) else None
+            value_C2T1 = rows_T1[i][0] if i < len(rows_T1) else None
+
             destination_cursor.execute(
                 "INSERT INTO T3 (C1T2, C2T1) VALUES (%s, %s)",
-                (rows_T2[i][0], rows_T1[i][0])
+                (value_C1T2, value_C2T1)
             )
 
         destination_conn.commit()
